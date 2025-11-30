@@ -4,6 +4,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <PubSubClient.h>
+#include "secrets.h"
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -22,17 +23,17 @@ const int relay2Pin = 22;  // GPIO22 – relæ 2 (tidsstyret)
 // WiFi
 // -------------------------
 
-const char* ssid = "Blacksheep";
-const char* password = "hesthest";
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASSWORD;
 
 // -------------------------
 // MQTT
 // -------------------------
 
-const char* mqtt_server = "192.168.1.36";
-const int mqtt_port = 1883;
-const char* mqtt_user = "train";
-const char* mqtt_password = "train123train123";
+const char* mqtt_server = MQTT_SERVER;
+const int mqtt_port = MQTT_PORT;
+const char* mqtt_user = MQTT_USER;
+const char* mqtt_password = MQTT_PASSWORD;
 const char* mqtt_client_id = "ESP32_TogstyringMQTT";
 const char* mqtt_topic = "homeassistant/togstyring/ir_sensor";
 
