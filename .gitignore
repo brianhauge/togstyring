@@ -1,4 +1,45 @@
-.pio
-.vscode
+# Root
+.env
+*.log
 .DS_Store
-src/secrets.h
+
+# API
+api/target/
+api/.mvn/wrapper/maven-wrapper.jar
+api/.apt_generated
+api/.classpath
+api/.factorypath
+api/.project
+api/.settings
+api/.springBeans
+api/.sts4-cache
+api/.idea
+api/*.iws
+api/*.iml
+api/*.ipr
+api/.vscode/
+
+# MQTT Bridge
+mqtt-bridge/target/
+mqtt-bridge/.mvn/wrapper/maven-wrapper.jar
+mqtt-bridge/.apt_generated
+mqtt-bridge/.classpath
+mqtt-bridge/.factorypath
+mqtt-bridge/.project
+mqtt-bridge/.settings
+mqtt-bridge/.springBeans
+mqtt-bridge/.sts4-cache
+mqtt-bridge/.idea
+mqtt-bridge/*.iws
+mqtt-bridge/*.iml
+mqtt-bridge/*.ipr
+mqtt-bridge/.vscode/
+
+# ESP32
+esp32/.pio/
+esp32/.vscode/
+esp32/src/secrets.h
+
+# Docker
+*.env
+docker-compose.override.yml

@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: datetime-postgres
+    environment:
+      POSTGRES_DB: datetime_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - datetime-network
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: datetime-api
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/datetime_db
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - datetime-network
+
+  mqtt-broker:
+    image: eclipse-mosquitto:2
+    container_name: mqtt-broker
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
+    networks:
+      - datetime-network
+    command: mosquitto -c /mosquitto-no-auth.conf
+
+  mqtt-bridge:
+    build:
+      context: ./mqtt-bridge
+      dockerfile: Dockerfile
+    container_name: mqtt-bridge
+    environment:
+      MQTT_BROKER_URL: tcp://mqtt-broker:1883
+      MQTT_CLIENT_ID: mqtt-bridge-client
+      MQTT_TOPIC: homeassistant/togstyring/ir_sensor
+      MQTT_USERNAME: ""
+      MQTT_PASSWORD: ""
+      API_BASE_URL: http://api:8080
+    ports:
+      - "8081:8081"
+    depends_on:
+      - api
+      - mqtt-broker
+    networks:
+      - datetime-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  mosquitto_data:
+    driver: local
+  mosquitto_logs:
+    driver: local
+
+networks:
+  datetime-network:
+    driver: bridge

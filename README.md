@@ -1,260 +1,329 @@
-# Togstyring - ESP32 Train Control System
+# TogEsp32 Train Control System
 
-ESP32-based train control system with infrared sensor detection, dual relay control, OLED display, and Home Assistant MQTT integration.
+A complete IoT system for ESP32-based train control with MQTT messaging, REST API, and PostgreSQL database. This repository contains three integrated projects:
 
-## Features
+## Projects
 
-- **Infrared Sensor Detection**: Automatically detects train passage using IR sensor on GPIO18
-- **Dual Relay Control**:
-  - Relay 1 (GPIO23): Random train stop with 1/5 activation chance (5-10 second delays)
-  - Relay 2 (GPIO22): Time-based control (active 16:05-21:15 daily)
-- **OLED Display**: Real-time status display showing WiFi, time, sensor status, and round count
-- **MQTT Integration**: Publishes detection events to Home Assistant with relay state
-- **NTP Time Sync**: Automatic time synchronization with configurable timezone
-- **5-Second Grace Period**: Debounce protection for sensor readings
+### 1. ESP32 Firmware (`esp32/`)
+ESP32-based train control system with infrared sensor detection, dual relay control, OLED display, and MQTT integration.
 
-## Hardware Requirements
+**Features:**
+- Infrared sensor detection for train passage
+- Dual relay control (random stops + time-based activation)
+- OLED display for real-time status
+- MQTT publishing to Home Assistant
+- NTP time synchronization
 
-- ESP32 Development Board
-- Infrared sensor module (connected to GPIO18)
-- 2x Relay modules (GPIO23 and GPIO22)
-- SSD1306 OLED Display (128x64, I2C on GPIO32/33)
-- Power supply for ESP32 and relays
+[Read more →](esp32/README.md)
 
-## Software Requirements
+### 2. REST API (`api/`)
+Java Spring Boot REST API for managing date-time records and train detection data.
 
-- [PlatformIO](https://platformio.org/)
-- Python 3.x (for PlatformIO)
-- Home Assistant with Mosquitto MQTT broker (optional for MQTT features)
+**Features:**
+- RESTful endpoints for date-time records
+- Train detection data logging
+- PostgreSQL database integration
+- Fully containerized with Docker
 
-## Installation
+[Read more →](api/README.md)
 
-### 1. Clone the Repository
+### 3. MQTT Bridge (`mqtt-bridge/`)
+Java Spring Boot service that bridges MQTT messages to REST API calls.
 
-```bash
-git clone https://github.com/brianhauge/togstyring.git
-cd togstyring
+**Features:**
+- Subscribes to MQTT topics
+- Automatic message parsing and forwarding
+- Configurable via environment variables
+- Auto-reconnection to MQTT broker
+
+[Read more →](mqtt-bridge/README.md)
+
+## Architecture
+
+```
+┌─────────────┐
+│  ESP32      │ ──MQTT──┐
+│  Device     │         │
+└─────────────┘         │
+                        ▼
+                 ┌──────────────┐
+                 │ MQTT Broker  │
+                 │ (Mosquitto)  │
+                 └──────────────┘
+                        │
+                        │ Subscribe
+                        ▼
+                 ┌──────────────┐
+                 │ MQTT Bridge  │
+                 │   Service    │
+                 └──────────────┘
+                        │
+                        │ HTTP POST
+                        ▼
+                 ┌──────────────┐
+                 │  REST API    │
+                 └──────────────┘
+                        │
+                        ▼
+                 ┌──────────────┐
+                 │  PostgreSQL  │
+                 │   Database   │
+                 └──────────────┘
 ```
 
-### 2. Configure Credentials
+## Quick Start
 
-Copy the example secrets file and add your credentials:
+### Prerequisites
+
+- Docker and Docker Compose
+- For ESP32 development: PlatformIO
+
+### 1. Start Backend Services
 
 ```bash
+docker-compose up --build
+```
+
+This starts:
+- PostgreSQL database (port 5432)
+- REST API (port 8080)
+- Mosquitto MQTT broker (port 1883)
+- MQTT bridge service (port 8081)
+
+### 2. Configure ESP32
+
+Navigate to the ESP32 project:
+
+```bash
+cd esp32
 cp src/secrets.h.example src/secrets.h
 ```
 
-Edit `src/secrets.h` with your WiFi and MQTT settings:
+Edit `src/secrets.h` with your WiFi and MQTT credentials.
 
-```cpp
-#define WIFI_SSID "your_wifi_ssid"
-#define WIFI_PASSWORD "your_wifi_password"
-#define MQTT_SERVER "192.168.1.xxx"
-#define MQTT_PORT 1883
-#define MQTT_USER "your_mqtt_username"
-#define MQTT_PASSWORD "your_mqtt_password"
-```
-
-### 3. Build and Upload
-
-#### Quick Deploy (Recommended)
-
-Use the included deployment scripts for a streamlined workflow:
-
-**Windows (Batch):**
-```batch
-deploy.bat          # Build, upload, and monitor (default)
-deploy.bat build    # Build only
-deploy.bat upload   # Build and upload
-deploy.bat monitor  # Serial monitor only
-deploy.bat clean    # Clean build files
-deploy.bat help     # Show help
-```
-
-**Windows/Linux/macOS (PowerShell):**
-```powershell
-./deploy.ps1          # Build, upload, and monitor (default)
-./deploy.ps1 build    # Build only
-./deploy.ps1 upload   # Build and upload
-./deploy.ps1 monitor  # Serial monitor only
-./deploy.ps1 clean    # Clean build files
-./deploy.ps1 help     # Show help
-```
-
-#### Manual PlatformIO Commands
+### 3. Flash ESP32
 
 ```bash
-# Install PlatformIO if not already installed
-pip install -U platformio
-
-# Build the project
-pio run
-
-# Upload to ESP32 (ensure ESP32 is connected via USB)
+cd esp32
 pio run -t upload
-
-# Monitor serial output
-pio device monitor -b 115200
+pio device monitor
 ```
 
-## MQTT Integration
+## Services
 
-The system publishes JSON messages to the topic `homeassistant/togstyring/ir_sensor` whenever the IR sensor detects the train:
+| Service | Port | Description |
+|---------|------|-------------|
+| REST API | 8080 | HTTP REST API endpoints |
+| MQTT Broker | 1883 | Mosquitto MQTT broker |
+| MQTT Bridge | 8081 | MQTT to REST bridge service |
+| PostgreSQL | 5432 | Database |
 
-```json
-{
-  "state": "detected",
-  "rounds": 42,
-  "relay": "activated",
-  "timestamp": "2025-12-07T19:45:23"
-}
+## API Endpoints
+
+### DateTime Records
+
+- `POST /api/datetime` - Create date-time record
+- `GET /api/datetime` - Get all records
+- `GET /api/datetime/{id}` - Get specific record
+- `GET /api/datetime/latest` - Get latest record
+- `PUT /api/datetime/{id}` - Update record
+- `DELETE /api/datetime/{id}` - Delete record
+
+### Train Detection
+
+- `POST /api/train/detection` - Log train detection
+- `GET /api/train/detection` - Get all detections
+- `GET /api/train/detection/latest` - Get latest detection
+- `GET /api/train/detection/{id}` - Get specific detection
+- `GET /api/train/stats` - Get statistics
+
+## Testing
+
+### Test MQTT Publishing
+
+Publish a test message:
+
+```bash
+mosquitto_pub -h localhost -t homeassistant/togstyring/ir_sensor \
+  -m '{"state":"detected","rounds":5,"relay":"activated","timestamp":"2025-12-07T20:15:30"}'
 ```
 
-or
+### Verify Data Storage
 
-```json
-{
-  "state": "detected",
-  "rounds": 43,
-  "relay": "not_activated",
-  "timestamp": "2025-12-07T19:47:15"
-}
+Check if the message was stored:
+
+```bash
+curl http://localhost:8080/api/train/detection/latest
 ```
 
-The `timestamp` field uses ISO 8601 format (YYYY-MM-DDTHH:MM:SS) for easy parsing and logging.
+### Get Statistics
 
-### Home Assistant Setup
+```bash
+curl http://localhost:8080/api/train/stats
+```
 
-1. Install Mosquitto MQTT broker:
-   - Go to **Settings** → **Add-ons** → **Add-on Store**
-   - Search for "Mosquitto broker" and install
-   - Configure with your MQTT credentials
-   - Start the add-on
+## Configuration
 
-2. Add MQTT integration:
-   - Go to **Settings** → **Devices & Services**
-   - Add **MQTT** integration
-   - Configure with broker details
+### Environment Variables
 
-3. Listen to messages:
-   - Go to **Settings** → **Devices & Services** → **MQTT** → **Configure**
-   - Click "Listen to a topic"
-   - Enter topic: `homeassistant/togstyring/ir_sensor`
+Create a `.env` file (see `.env.example`):
 
-### Example Automation
+```env
+# MQTT Configuration
+MQTT_BROKER_URL=tcp://mqtt-broker:1883
+MQTT_TOPIC=homeassistant/togstyring/ir_sensor
+MQTT_USERNAME=
+MQTT_PASSWORD=
+
+# API Configuration
+API_BASE_URL=http://api:8080
+
+# Database Configuration
+POSTGRES_DB=datetime_db
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+```
+
+### Using External MQTT Broker
+
+To use Home Assistant's MQTT broker:
 
 ```yaml
-automation:
-  - alias: "Train Detection Notification"
-    trigger:
-      - platform: mqtt
-        topic: "homeassistant/togstyring/ir_sensor"
-    condition:
-      - condition: template
-        value_template: "{{ trigger.payload_json.relay == 'activated' }}"
-    action:
-      - service: notify.notify
-        data:
-          message: "Train passed and stopped! Round {{ trigger.payload_json.rounds }}"
+mqtt-bridge:
+  environment:
+    MQTT_BROKER_URL: tcp://your-homeassistant-ip:1883
+    MQTT_USERNAME: "your_mqtt_user"
+    MQTT_PASSWORD: "your_mqtt_password"
 ```
 
-## Pin Configuration
-
-| Component | GPIO Pin |
-|-----------|----------|
-| IR Sensor | GPIO18 |
-| Relay 1 (Train Stop) | GPIO23 |
-| Relay 2 (Time Control) | GPIO22 |
-| OLED SDA | GPIO32 |
-| OLED SCL | GPIO33 |
-
-## Configuration Options
-
-### Time-Based Control (Relay 2)
-
-Edit in `src/TogMedDisplay.ino`:
-
-```cpp
-const int startHour = 16;     // Start hour (24-hour format)
-const int startMinute = 05;   // Start minute
-const int stopHour = 21;      // Stop hour
-const int stopMinute = 15;    // Stop minute
-```
-
-### Grace Period
-
-Edit in `src/TogMedDisplay.ino`:
-
-```cpp
-const unsigned long debounceDelay = 5000;  // ms (5 seconds)
-```
-
-### Random Activation Probability
-
-Edit in `src/TogMedDisplay.ino`:
-
-```cpp
-bool willActivateRelay = (random(5) == 0);  // 1/5 chance = 20%
-```
-
-Change `5` to adjust probability (e.g., `4` = 25%, `10` = 10%)
-
-## Serial Monitor Output
-
-When running, you'll see output like:
+## Project Structure
 
 ```
-Starter togstyring...
-Forbinder til WiFi: YourNetwork
-..
-WiFi forbundet!
-IP: 192.168.1.120
-MQTT konfigureret
-Forbinder til MQTT...MQTT forbundet!
-19:44 - tidsvindue åbent, relæ 2 AKTIVERET
-MQTT besked sendt: {"state":"detected","rounds":1,"relay":"activated"}
-IR sensor aktiveret - aktiverer relæ 1 i 7000 ms (1/5 chance)
-Deaktiverer relæ 1.
+.
+├── api/                          # REST API Service
+│   ├── src/
+│   │   └── main/
+│   │       ├── java/com/datetime/api/
+│   │       └── resources/
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── README.md
+├── mqtt-bridge/                  # MQTT Bridge Service
+│   ├── src/
+│   │   └── main/
+│   │       ├── java/com/mqtt/bridge/
+│   │       └── resources/
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── README.md
+├── esp32/                        # ESP32 Firmware
+│   ├── src/
+│   │   ├── TogMedDisplay.ino
+│   │   └── secrets.h.example
+│   ├── platformio.ini
+│   ├── deploy.bat
+│   ├── deploy.ps1
+│   └── README.md
+├── docker-compose.yml            # Docker orchestration
+├── .env.example                  # Environment variables template
+├── .gitignore
+└── README.md                     # This file
 ```
 
-## Dependencies
+## Technology Stack
 
-All dependencies are automatically managed by PlatformIO:
+### Backend
+- Java 17
+- Spring Boot 3.2.0
+- Spring Data JPA
+- Spring Integration MQTT
+- PostgreSQL 16
+- Eclipse Mosquitto
+- Maven
 
-- Adafruit GFX Library (^1.11.3)
-- Adafruit SSD1306 (^2.5.7)
-- NTPClient (^3.2.1)
-- PubSubClient (^2.8)
+### ESP32
+- Arduino Framework
+- PlatformIO
+- Adafruit libraries (GFX, SSD1306)
+- PubSubClient (MQTT)
+- NTPClient
+
+### DevOps
+- Docker & Docker Compose
+- Multi-stage builds
+
+## Development
+
+### Building Individual Services
+
+**API:**
+```bash
+cd api
+mvn clean package
+```
+
+**MQTT Bridge:**
+```bash
+cd mqtt-bridge
+mvn clean package
+```
+
+**ESP32:**
+```bash
+cd esp32
+pio run
+```
+
+## Stopping Services
+
+Stop all Docker services:
+
+```bash
+docker-compose down
+```
+
+Stop and remove all data:
+
+```bash
+docker-compose down -v
+```
 
 ## Troubleshooting
 
-### MQTT Connection Failed (rc=-2)
-- MQTT broker is not reachable
-- Check network connectivity
-- Verify MQTT server IP address
+### MQTT Connection Issues
 
-### MQTT Connection Failed (rc=5)
-- Authentication failed
-- Check MQTT username and password in `secrets.h`
-- Ensure Mosquitto broker is configured with credentials
+Check if broker is running:
+```bash
+docker logs mqtt-broker
+```
 
-### Display Not Found
-- Check I2C connections (SDA/SCL)
-- Verify display I2C address (default: 0x3C)
-- Check power supply to display
+### Database Connection Issues
 
-### WiFi Connection Issues
-- Verify SSID and password in `secrets.h`
-- Check WiFi signal strength
-- Ensure 2.4GHz network (ESP32 doesn't support 5GHz)
+Verify PostgreSQL is healthy:
+```bash
+docker ps | grep postgres
+```
 
-## License
+### API Not Responding
 
-This project is open source and available for personal and educational use.
+Check API logs:
+```bash
+docker logs datetime-api
+```
+
+### ESP32 Not Publishing
+
+1. Verify WiFi credentials in `esp32/src/secrets.h`
+2. Check serial monitor output: `pio device monitor`
+3. Ensure MQTT broker is accessible from ESP32's network
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is open source and available for personal and educational use.
 
 ## Author
 
