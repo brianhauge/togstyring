@@ -105,7 +105,8 @@ The system publishes JSON messages to the topic `homeassistant/togstyring/ir_sen
 {
   "state": "detected",
   "rounds": 42,
-  "relay": "activated"
+  "relay": "activated",
+  "timestamp": "2025-12-07T19:45:23"
 }
 ```
 
@@ -115,9 +116,12 @@ or
 {
   "state": "detected",
   "rounds": 43,
-  "relay": "not_activated"
+  "relay": "not_activated",
+  "timestamp": "2025-12-07T19:47:15"
 }
 ```
+
+The `timestamp` field uses ISO 8601 format (YYYY-MM-DDTHH:MM:SS) for easy parsing and logging.
 
 ### Home Assistant Setup
 

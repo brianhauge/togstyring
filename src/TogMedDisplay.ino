@@ -185,8 +185,9 @@ void loop() {
   mqttClient.loop();
 
   // Hent aktuel tid
-  int hour, minute, second;
+  int hour, minute, second, day, month, year;
   String timeStr = "";
+  String dateTimeStr = "";
   String irM = "";
     
 
@@ -194,7 +195,20 @@ void loop() {
     hour   = timeinfo.tm_hour;
     minute = timeinfo.tm_min;
     second = timeinfo.tm_sec;
+    day    = timeinfo.tm_mday;
+    month  = timeinfo.tm_mon + 1;  // tm_mon er 0-11
+    year   = timeinfo.tm_year + 1900;  // tm_year er år siden 1900
+    
     timeStr = String(hour) + ":" + (minute < 10 ? "0" : "") + String(minute) + ":" + (second < 10 ? "0" : "") + String(second);
+    
+    // ISO 8601 format: YYYY-MM-DDTHH:MM:SS
+    dateTimeStr = String(year) + "-" + 
+                  (month < 10 ? "0" : "") + String(month) + "-" + 
+                  (day < 10 ? "0" : "") + String(day) + "T" + 
+                  (hour < 10 ? "0" : "") + String(hour) + ":" + 
+                  (minute < 10 ? "0" : "") + String(minute) + ":" + 
+                  (second < 10 ? "0" : "") + String(second);
+    
     //Serial.printf("Time: %02d:%02d:%02d\n", hour, minute, second);
   } else {
     Serial.println("Failed to obtain time");
@@ -225,10 +239,10 @@ void loop() {
       // Tjek om relæ skal aktiveres
       bool willActivateRelay = (random(5) == 0);
       
-      // Send MQTT besked når IR sensor aktiveres med relay status
+      // Send MQTT besked når IR sensor aktiveres med relay status og timestamp
       if (mqttClient.connected()) {
         String relayState = willActivateRelay ? "activated" : "not_activated";
-        String payload = "{\"state\":\"detected\",\"rounds\":" + String(rounds) + ",\"relay\":\"" + relayState + "\"}";
+        String payload = "{\"state\":\"detected\",\"rounds\":" + String(rounds) + ",\"relay\":\"" + relayState + "\",\"timestamp\":\"" + dateTimeStr + "\"}";
         mqttClient.publish(mqtt_topic, payload.c_str());
         Serial.println("MQTT besked sendt: " + payload);
       }
