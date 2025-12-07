@@ -57,6 +57,32 @@ Edit `src/secrets.h` with your WiFi and MQTT settings:
 
 ### 3. Build and Upload
 
+#### Quick Deploy (Recommended)
+
+Use the included deployment scripts for a streamlined workflow:
+
+**Windows (Batch):**
+```batch
+deploy.bat          # Build, upload, and monitor (default)
+deploy.bat build    # Build only
+deploy.bat upload   # Build and upload
+deploy.bat monitor  # Serial monitor only
+deploy.bat clean    # Clean build files
+deploy.bat help     # Show help
+```
+
+**Windows/Linux/macOS (PowerShell):**
+```powershell
+./deploy.ps1          # Build, upload, and monitor (default)
+./deploy.ps1 build    # Build only
+./deploy.ps1 upload   # Build and upload
+./deploy.ps1 monitor  # Serial monitor only
+./deploy.ps1 clean    # Clean build files
+./deploy.ps1 help     # Show help
+```
+
+#### Manual PlatformIO Commands
+
 ```bash
 # Install PlatformIO if not already installed
 pip install -U platformio
