@@ -254,13 +254,7 @@ void loop() {
   int currentTotal = hour * 60 + minute;
   int startTotal = startHour * 60 + startMinute;
   int stopTotal = stopHour * 60 + stopMinute;
-
   bool withinActiveTime = (currentTotal >= startTotal && currentTotal < stopTotal);
-
-  //Serial.printf("Now: %02d between: %02d - %02d : %d\n", currentTotal, startTotal, stopTotal, withinActiveTime);
-  //Serial.printf("Relay2State: %d\n", relay2State);
-  delay(200);
-
 
   if (withinActiveTime && !relay2State) {
     relay2State = true;
