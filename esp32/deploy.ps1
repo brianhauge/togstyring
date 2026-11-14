@@ -14,6 +14,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Use the pio command if it is on PATH, otherwise run PlatformIO through Python
+# (pip install --user puts pio in a folder that is often not on PATH).
+if (Get-Command pio -ErrorAction SilentlyContinue) {
+    function Invoke-Pio { & pio @args }
+} else {
+    function Invoke-Pio { & python -m platformio @args }
+}
+
 function Show-Header {
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host "ESP32 Deployment Script" -ForegroundColor Cyan
@@ -48,7 +56,7 @@ function Test-SecretsFile {
 
 function Invoke-Build {
     Write-Host "Building project..." -ForegroundColor Green
-    pio run
+    Invoke-Pio run
     if ($LASTEXITCODE -ne 0) {
         Write-Host ""
         Write-Host "BUILD FAILED!" -ForegroundColor Red
@@ -61,9 +69,9 @@ function Invoke-Build {
 function Invoke-Upload {
     Write-Host "Building and uploading to ESP32..." -ForegroundColor Green
     if ($Port) {
-        pio run --target upload --upload-port $Port
+        Invoke-Pio run --target upload --upload-port $Port
     } else {
-        pio run --target upload
+        Invoke-Pio run --target upload
     }
     if ($LASTEXITCODE -ne 0) {
         Write-Host ""
@@ -80,15 +88,15 @@ function Invoke-Monitor {
     Write-Host ""
     # Baud rate comes from monitor_speed in platformio.ini
     if ($Port) {
-        pio device monitor --port $Port
+        Invoke-Pio device monitor --port $Port
     } else {
-        pio device monitor
+        Invoke-Pio device monitor
     }
 }
 
 function Invoke-Clean {
     Write-Host "Cleaning build files..." -ForegroundColor Green
-    pio run --target clean
+    Invoke-Pio run --target clean
     Write-Host ""
     Write-Host "Clean complete!" -ForegroundColor Green
 }

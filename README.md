@@ -5,11 +5,11 @@ A complete IoT system for ESP32-based train control with MQTT messaging, REST AP
 ## Projects
 
 ### 1. ESP32 Firmware (`esp32/`)
-ESP32-based train control system with infrared sensor detection, dual relay control, OLED display, and MQTT integration.
+ESP32-based train control system with a start button, a timed relay, OLED display, and MQTT logging.
 
 **Features:**
-- Infrared sensor detection for train passage
-- Dual relay control (random stops + time-based activation)
+- Start button that switches relay 2 on for 5 seconds (repeat presses ignored while on)
+- Non-blocking: button and relay work without WiFi or MQTT
 - OLED display for real-time status
 - MQTT publishing to Home Assistant
 - NTP time synchronization
@@ -145,7 +145,7 @@ Publish a test message:
 
 ```bash
 mosquitto_pub -h localhost -t homeassistant/togstyring/ir_sensor \
-  -m '{"state":"detected","rounds":5,"relay":"activated","timestamp":"2025-12-07T20:15:30"}'
+  -m '{"state":"button_pressed","rounds":5,"relay":"activated","timestamp":"2025-12-07T20:15:30"}'
 ```
 
 ### Verify Data Storage

@@ -1,23 +1,22 @@
 # Togstyring - ESP32 Train Control System
 
-ESP32-based train control system with infrared sensor detection, dual relay control, OLED display, and Home Assistant MQTT integration.
+ESP32-based train control with a start button, a timed relay, an OLED display, and optional MQTT logging to Home Assistant / the backend.
 
 ## Features
 
-- **Infrared Sensor Detection**: Automatically detects train passage using IR sensor on GPIO18
-- **Dual Relay Control**:
-  - Relay 1 (GPIO23): Random train stop with 1/5 activation chance (5-10 second delays)
-  - Relay 2 (GPIO22): Time-based control (active 16:05-21:15 daily)
-- **OLED Display**: Real-time status display showing WiFi, time, sensor status, and round count
-- **MQTT Integration**: Publishes detection events to Home Assistant with relay state
-- **NTP Time Sync**: Automatic time synchronization with configurable timezone
-- **5-Second Grace Period**: Debounce protection for sensor readings
+- **Start button** (GPIO18): one press switches relay 2 on for 5 seconds
+- **Lockout**: presses while relay 2 is on are ignored, so repeated presses never extend or restart the 5 seconds
+- **Debounced input**: a press must be stable for 50 ms; holding the button counts as one press
+- **Non-blocking**: the main loop never waits, so the button and relay work even with no WiFi or MQTT
+- **OLED display**: WiFi, time, MQTT status, relay countdown and press count
+- **MQTT logging** (optional): each accepted press is published; if MQTT is down the message is dropped
+- **Time sync**: built-in SNTP with Danish time zone, used for the MQTT timestamp
 
 ## Hardware Requirements
 
 - ESP32 Development Board
-- Infrared sensor module (connected to GPIO18)
-- 2x Relay modules (GPIO23 and GPIO22)
+- Start button (Biltema art. 43-085 car starter button), powered from the ESP32's 3V3 - see [Button wiring](#button-wiring)
+- Relay module on GPIO22 (relay 2). GPIO23 (relay 1) is no longer used and is held LOW
 - SSD1306 OLED Display (128x64, I2C on GPIO32/33)
 - Power supply for ESP32 and relays
 
@@ -108,29 +107,22 @@ pio device monitor -b 115200
 
 ## MQTT Integration
 
-The system publishes JSON messages to the topic `homeassistant/togstyring/ir_sensor` whenever the IR sensor detects the train:
+MQTT is used for logging only. Each accepted button press publishes to the topic `homeassistant/togstyring/ir_sensor`:
 
 ```json
 {
-  "state": "detected",
+  "state": "button_pressed",
   "rounds": 42,
   "relay": "activated",
-  "timestamp": "2025-12-07T19:45:23"
+  "timestamp": "2026-11-14T19:45:23"
 }
 ```
 
-or
+- `rounds` is the number of presses that activated relay 2 since boot. Ignored presses are not counted or published.
+- `timestamp` is ISO 8601 local time. It is left out until the clock has synced after boot.
+- The fields match the old IR message, so `mqtt-bridge` and the API accept it unchanged.
 
-```json
-{
-  "state": "detected",
-  "rounds": 43,
-  "relay": "not_activated",
-  "timestamp": "2025-12-07T19:47:15"
-}
-```
-
-The `timestamp` field uses ISO 8601 format (YYYY-MM-DDTHH:MM:SS) for easy parsing and logging.
+MQTT runs in its own FreeRTOS task. A press only drops the message into a queue without waiting; if WiFi or MQTT is down the message is dropped, and the button and relay are not affected. The task retries the broker connection every 5 seconds.
 
 ### Home Assistant Setup
 
@@ -158,72 +150,70 @@ automation:
     trigger:
       - platform: mqtt
         topic: "homeassistant/togstyring/ir_sensor"
-    condition:
-      - condition: template
-        value_template: "{{ trigger.payload_json.relay == 'activated' }}"
     action:
       - service: notify.notify
         data:
-          message: "Train passed and stopped! Round {{ trigger.payload_json.rounds }}"
+          message: "Start button pressed ({{ trigger.payload_json.rounds }} times)"
 ```
 
 ## Pin Configuration
 
 | Component | GPIO Pin |
 |-----------|----------|
-| IR Sensor | GPIO18 |
-| Relay 1 (Train Stop) | GPIO23 |
-| Relay 2 (Time Control) | GPIO22 |
+| Start button, pin 2 | GPIO18 |
+| Relay 1 (unused, held LOW) | GPIO23 |
+| Relay 2 (button-activated) | GPIO22 |
 | OLED SDA | GPIO32 |
 | OLED SCL | GPIO33 |
 
+## Button wiring
+
+The button is a Biltema starter button (art. 43-085). The pin numbers below are the ones printed on its box, which differ from the website:
+
+| Button pin | Box label | Connect to ESP32 |
+|---|---|---|
+| 1 | Battery positive | **3V3** |
+| 2 | To device (live while pressed) | **GPIO18** |
+| 3 | Battery negative (lamp) | **GND** |
+
+Pressing the button connects pin 1 to pin 2: GPIO18 goes from LOW to 3.3 V and the lamp lights. The firmware uses the internal pull-down and treats HIGH as pressed (`buttonActiveHigh = true`).
+
+> **Warning:** never wire the button to 5 V or 12 V while pin 2 goes to GPIO18. ESP32 pins tolerate at most 3.3 V. If the button must run on 12 V, put an optocoupler (e.g. PC817) between it and GPIO18 and set `buttonActiveHigh = false`.
+
 ## Configuration Options
 
-### Time-Based Control (Relay 2)
-
 Edit in `src/TogMedDisplay.ino`:
 
 ```cpp
-const int startHour = 16;     // Start hour (24-hour format)
-const int startMinute = 05;   // Start minute
-const int stopHour = 21;      // Stop hour
-const int stopMinute = 15;    // Stop minute
+const unsigned long relayOnTime = 5000;        // ms relay 2 stays on per press
+const unsigned long debounceTime = 50;         // ms the button must be stable
+const unsigned long mqttRetryInterval = 5000;  // ms between MQTT reconnect attempts
 ```
 
-### Grace Period
+## Display
 
-Edit in `src/TogMedDisplay.ino`:
+```
+WiFi: 192.168.1.120
+Tid:  19:45:23
+MQTT: OK
 
-```cpp
-const unsigned long debounceDelay = 5000;  // ms (5 seconds)
+Relæ: AKTIV 3 sek
+Tryk: 42
 ```
 
-### Random Activation Probability
-
-Edit in `src/TogMedDisplay.ino`:
-
-```cpp
-bool willActivateRelay = (random(5) == 0);  // 1/5 chance = 20%
-```
-
-Change `5` to adjust probability (e.g., `4` = 25%, `10` = 10%)
+`Relæ` shows `klar` (ready) when relay 2 is off and a countdown while it is on.
 
 ## Serial Monitor Output
-
-When running, you'll see output like:
 
 ```
 Starter togstyring...
 Forbinder til WiFi: YourNetwork
-..
-WiFi forbundet!
-IP: 192.168.1.120
 MQTT konfigureret
 Forbinder til MQTT...MQTT forbundet!
-19:44 - tidsvindue åbent, relæ 2 AKTIVERET
-MQTT besked sendt: {"state":"detected","rounds":1,"relay":"activated"}
-IR sensor aktiveret - aktiverer relæ 1 i 7000 ms (1/5 chance)
-Deaktiverer relæ 1.
+Knap trykket - relæ 2 aktiveret i 5000 ms
+MQTT besked sendt: {"state":"button_pressed","rounds":1,"relay":"activated","timestamp":"2026-11-14T19:45:23"}
+Knap trykket - ignoreret, relæ 2 er allerede aktivt
+Relæ 2 deaktiveret
 ```
 
 ## Dependencies
@@ -247,6 +237,7 @@ All dependencies are automatically managed by PlatformIO:
 - Ensure Mosquitto broker is configured with credentials
 
 ### Display Not Found
+- The controller keeps running without the display; the button and relay still work
 - Check I2C connections (SDA/SCL)
 - Verify display I2C address (default: 0x3C)
 - Check power supply to display
