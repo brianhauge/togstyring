@@ -1,6 +1,4 @@
 #include <WiFi.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <PubSubClient.h>
@@ -39,13 +37,6 @@ const char* mqtt_topic = "homeassistant/togstyring/ir_sensor";
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
-
-// -------------------------
-// NTP klient
-// -------------------------
-
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org", 7200); 
 
 // -------------------------
 // Infrared sensor debounce
@@ -119,7 +110,7 @@ void setup() {
   display.println(WiFi.localIP());
   display.display();
 
-  // Start NTP
+  // Start NTP (indbygget SNTP, dansk tidszone)
   configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "pool.ntp.org", "time.nist.gov");
 
   // Initialiser tilfældig generator

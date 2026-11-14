@@ -81,6 +81,15 @@ deploy.bat help     # Show help
 ./deploy.ps1 help     # Show help
 ```
 
+`deploy.bat` is a thin wrapper around `deploy.ps1`, so both accept the same commands.
+
+The serial port is auto-detected by PlatformIO. To pin it, pass `-Port` or set the
+`ESP32_PORT` environment variable:
+
+```powershell
+./deploy.ps1 upload -Port COM7
+```
+
 #### Manual PlatformIO Commands
 
 ```bash
@@ -223,7 +232,6 @@ All dependencies are automatically managed by PlatformIO:
 
 - Adafruit GFX Library (^1.11.3)
 - Adafruit SSD1306 (^2.5.7)
-- NTPClient (^3.2.1)
 - PubSubClient (^2.8)
 
 ## Troubleshooting

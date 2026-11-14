@@ -1,11 +1,15 @@
 #!/usr/bin/env pwsh
 # ESP32 Deployment Script for TogEsp32 Project
 # PowerShell version - works on Windows, Linux, and macOS
+# Run from the esp32/ folder (deploy.bat does this for you on Windows).
 
 param(
     [Parameter(Position=0)]
     [ValidateSet("build", "upload", "monitor", "clean", "all", "help")]
-    [string]$Action = "all"
+    [string]$Action = "all",
+
+    # Serial port, e.g. COM7 or /dev/ttyUSB0. Omit to let PlatformIO auto-detect.
+    [string]$Port = $env:ESP32_PORT
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,7 +22,7 @@ function Show-Header {
 }
 
 function Show-Help {
-    Write-Host "Usage: ./deploy.ps1 [command]" -ForegroundColor Yellow
+    Write-Host "Usage: ./deploy.ps1 [command] [-Port <serial port>]" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Commands:"
     Write-Host "  build      - Build the project only"
@@ -27,6 +31,9 @@ function Show-Help {
     Write-Host "  clean      - Clean build files"
     Write-Host "  all        - Build, upload, and monitor (default)"
     Write-Host "  help       - Show this help message"
+    Write-Host ""
+    Write-Host "The serial port is auto-detected unless -Port (or the ESP32_PORT"
+    Write-Host "environment variable) is set, e.g. ./deploy.ps1 upload -Port COM7"
     Write-Host ""
 }
 
@@ -53,7 +60,11 @@ function Invoke-Build {
 
 function Invoke-Upload {
     Write-Host "Building and uploading to ESP32..." -ForegroundColor Green
-    pio run --target upload
+    if ($Port) {
+        pio run --target upload --upload-port $Port
+    } else {
+        pio run --target upload
+    }
     if ($LASTEXITCODE -ne 0) {
         Write-Host ""
         Write-Host "UPLOAD FAILED!" -ForegroundColor Red
@@ -67,7 +78,12 @@ function Invoke-Monitor {
     Write-Host "Connecting to serial monitor..." -ForegroundColor Green
     Write-Host "Press Ctrl+C to exit" -ForegroundColor Yellow
     Write-Host ""
-    pio device monitor --baud 115200 --port COM7
+    # Baud rate comes from monitor_speed in platformio.ini
+    if ($Port) {
+        pio device monitor --port $Port
+    } else {
+        pio device monitor
+    }
 }
 
 function Invoke-Clean {
@@ -78,37 +94,27 @@ function Invoke-Clean {
 }
 
 function Invoke-All {
-    Write-Host "Step 1/3: Building project..." -ForegroundColor Green
-    pio run
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host ""
-        Write-Host "BUILD FAILED!" -ForegroundColor Red
-        exit 1
-    }
-    Write-Host ""
-    Write-Host "Build successful!" -ForegroundColor Green
+    Write-Host "Step 1/3" -ForegroundColor Cyan
+    Invoke-Build
     Write-Host ""
 
-    Write-Host "Step 2/3: Uploading to ESP32..." -ForegroundColor Green
-    pio run --target upload
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host ""
-        Write-Host "UPLOAD FAILED!" -ForegroundColor Red
-        exit 1
-    }
-    Write-Host ""
-    Write-Host "Upload successful!" -ForegroundColor Green
+    Write-Host "Step 2/3" -ForegroundColor Cyan
+    Invoke-Upload
     Write-Host ""
 
-    Write-Host "Step 3/3: Starting serial monitor..." -ForegroundColor Green
-    Write-Host "Press Ctrl+C to exit" -ForegroundColor Yellow
-    Write-Host ""
+    Write-Host "Step 3/3" -ForegroundColor Cyan
     Start-Sleep -Seconds 2
-    pio device monitor --baud 115200 --port COM7
+    Invoke-Monitor
 }
 
 # Main script execution
 Show-Header
+
+if ($Action -eq "help") {
+    Show-Help
+    exit 0
+}
+
 Test-SecretsFile
 
 switch ($Action) {
@@ -117,5 +123,4 @@ switch ($Action) {
     "monitor" { Invoke-Monitor }
     "clean"   { Invoke-Clean }
     "all"     { Invoke-All }
-    "help"    { Show-Help }
 }

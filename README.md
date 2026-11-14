@@ -166,7 +166,8 @@ curl http://localhost:8080/api/train/stats
 
 ### Environment Variables
 
-Create a `.env` file (see `.env.example`):
+`docker-compose.yml` reads these from a `.env` file next to it and falls back to the
+defaults below when a variable is unset. Copy `.env.example` to `.env` to override:
 
 ```env
 # MQTT Configuration
@@ -246,7 +247,6 @@ mqtt-bridge:
 - PlatformIO
 - Adafruit libraries (GFX, SSD1306)
 - PubSubClient (MQTT)
-- NTPClient
 
 ### DevOps
 - Docker & Docker Compose
